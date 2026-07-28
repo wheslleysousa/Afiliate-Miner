@@ -307,6 +307,17 @@ async function syncProductToFirestore(product, uid, idToken) {
       price_to: doc.price_to, title: doc.title, image_url: doc.image_url,
       miners: newMiners, mineCount: newCount,
     };
+    // Enriquece campos opcionais só quando vierem preenchidos (não apaga o que já existe)
+    if (doc.coupon)               patch.coupon = doc.coupon;
+    if (doc.installments)         patch.installments = doc.installments;
+    if (doc.pix_price)            patch.pix_price = doc.pix_price;
+    if (doc.description)          patch.description = doc.description;
+    if (doc.price_from)           patch.price_from = doc.price_from;
+    if (doc.stars)                patch.stars = doc.stars;
+    if (doc.sales_count)          patch.sales_count = doc.sales_count;
+    if (doc.discount_pct != null) patch.discount_pct = doc.discount_pct;
+    if (doc.free_shipping)        patch.free_shipping = doc.free_shipping;
+
     const mask = Object.keys(patch).map(f => `updateMask.fieldPaths=${f}`).join('&');
     await fetch(`${FS_BASE}/products/${globalId}?${mask}`, {
       method: 'PATCH', headers,

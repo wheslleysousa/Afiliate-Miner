@@ -357,7 +357,7 @@ function renderDraggableOverlay() {
           <div class="am-logo-icon">⚡</div>
           <div>
             <div class="am-header-title">AFFILIATE MINER</div>
-            <div class="am-header-ver">v2.1.0</div>
+            <div class="am-header-ver">v2.2.0</div>
           </div>
         </div>
         <div class="am-header-actions">
@@ -570,26 +570,46 @@ function enforcePageSortOrder(sort) {
 }
 
 function triggerAutomatedSearch() {
-  const kw = (qualityFilters.category || '').trim();
-  const cat = qualityFilters.categorySlug || '';
+  const kw   = (qualityFilters.category || '').trim();
+  const cat  = qualityFilters.categorySlug || '';
   const sort = qualityFilters.sortOrder || 'relevance';
+  const term = kw || cat;
+  const platform = getPlatformKey();
 
-  let targetUrl = 'https://lista.mercadolivre.com.br/';
+  let targetUrl;
 
-  if (kw) {
-    targetUrl += encodeURIComponent(kw);
-  } else if (cat) {
-    targetUrl += encodeURIComponent(cat);
-  } else {
-    targetUrl = 'https://www.mercadolivre.com.br/ofertas';
-  }
-
-  if (sort === 'sales') {
-    targetUrl += '_Order_sales_desc';
-  } else if (sort === 'price_asc') {
-    targetUrl += '_Order_price_asc';
-  } else if (sort === 'price_desc') {
-    targetUrl += '_Order_price_desc';
+  switch (platform) {
+    case 'amazon':
+      targetUrl = term
+        ? `https://www.amazon.com.br/s?k=${encodeURIComponent(term)}`
+        : 'https://www.amazon.com.br/deals';
+      break;
+    case 'shopee':
+      targetUrl = term
+        ? `https://shopee.com.br/search?keyword=${encodeURIComponent(term)}`
+        : 'https://shopee.com.br/daily_discover';
+      break;
+    case 'aliexpress':
+      targetUrl = term
+        ? `https://pt.aliexpress.com/wholesale?SearchText=${encodeURIComponent(term)}`
+        : 'https://pt.aliexpress.com/';
+      break;
+    case 'shein':
+      targetUrl = term
+        ? `https://www.shein.com.br/pdsearch/${encodeURIComponent(term)}`
+        : 'https://www.shein.com.br/';
+      break;
+    case 'mercadolivre':
+    default: {
+      // Mercado Livre suporta ordenação via sufixo _Order_
+      targetUrl = term
+        ? `https://lista.mercadolivre.com.br/${encodeURIComponent(term)}`
+        : 'https://www.mercadolivre.com.br/ofertas';
+      if (sort === 'sales')       targetUrl += '_Order_sales_desc';
+      else if (sort === 'price_asc')  targetUrl += '_Order_price_asc';
+      else if (sort === 'price_desc') targetUrl += '_Order_price_desc';
+      break;
+    }
   }
 
   window.location.href = targetUrl;
@@ -834,6 +854,7 @@ function extractRealProductData(element) {
     let title = '', pixPrice = 0, oldPrice = 0, discountPercent = 0;
     let rating = 0, sales = 0, freeShipping = false, noInterest = false;
     let image = '', link = window.location.href;
+    let coupon = null, installments = null, description = null, pixExplicit = 0;
     const id = 'prod_' + Date.now() + '_' + Math.floor(Math.random() * 9999);
 
     if (element) {
@@ -982,9 +1003,17 @@ function extractRealProductData(element) {
 
       const linkEl = element.querySelector('a[href]');
       if (linkEl) link = linkEl.href;
+
+      // 9. Parcelas, cupom e preço no Pix (a partir do texto do card)
+      installments = extractInstallmentsText(cardText);
+      coupon       = extractCouponText(element, cardText);
+      pixExplicit  = extractPixPriceNum(cardText, 0);
     } else {
       // Single PDP Extraction (product detail page)
-      const titleEl = document.querySelector('.ui-pdp-title, h1');
+      const titleEl = document.querySelector(
+        '.ui-pdp-title, #productTitle, .product-intro__head-name, ' +
+        '.product-title, [data-pl="product-title"], h1'
+      );
       if (titleEl) title = titleEl.textContent.trim();
 
       const pdpOldContainer = document.querySelector('.ui-pdp-price__part--original, s, del');
@@ -1052,8 +1081,21 @@ function extractRealProductData(element) {
       if (bodyText.toLowerCase().includes('frete grátis')) freeShipping = true;
       if (bodyText.toLowerCase().includes('sem juros')) noInterest = true;
 
-      const imgEl = document.querySelector('.ui-pdp-gallery__figure img, #gallery img');
+      const imgEl = document.querySelector(
+        '.ui-pdp-gallery__figure img, #gallery img, #landingImage, ' +
+        '#imgTagWrapperId img, .crop-image-container img, .main-swiper img'
+      );
       if (imgEl) image = imgEl.src || imgEl.dataset.src || '';
+      if (!image) {
+        const ogImg = document.querySelector('meta[property="og:image"]');
+        if (ogImg) image = ogImg.getAttribute('content') || '';
+      }
+
+      // Parcelas, cupom, preço no Pix e descrição completa (PDP)
+      installments = extractInstallmentsText(bodyText);
+      coupon       = extractCouponText(document, bodyText);
+      pixExplicit  = extractPixPriceNum(bodyText, 0);
+      description  = extractDescriptionText();
     }
 
     return {
@@ -1072,15 +1114,16 @@ function extractRealProductData(element) {
       pictures:     image ? [image] : [],
       price_to:     numToAppPrice(pixPrice),
       price_from:   oldPrice > 0 ? numToAppPrice(oldPrice) : null,
-      pix_price:    null,
-      installments: null,
-      coupon:       null,
+      pix_price:    pixExplicit > 0 ? numToAppPrice(pixExplicit)
+                     : (pixPrice > 0 ? numToAppPrice(pixPrice) : null),
+      installments: installments,
+      coupon:       coupon,
       shipping:     freeShipping ? 'Frete grátis' : null,
       free_shipping:!!freeShipping,
       stars:        rating > 0 ? String(rating) : null,
       sales_count:  sales > 0 ? (sales >= 1000 ? `${(sales/1000).toFixed(1)}k` : String(sales)) : null,
       discount_pct: discountPercent > 0 ? discountPercent : null,
-      description:  null,
+      description:  description,
       extractedAt:  new Date().toISOString(),
     };
   } catch (err) {
@@ -1114,6 +1157,75 @@ function cleanLinkUrl(url) {
 function numToAppPrice(num) {
   if (!num || num <= 0) return '';
   return `R$ ${num.toFixed(2).replace('.', ',')}`;
+}
+
+// ── Extração de PARCELAS (parcelado no cartão) ────────────
+// Aceita "12x de R$ 45,90 sem juros", "10x R$ 12,34", "em até 12x"
+function extractInstallmentsText(scopeText) {
+  if (!scopeText) return null;
+  const m = scopeText.match(/(\d{1,2})\s*x\s*(?:de\s*)?R\$\s*([\d.]+,\d{2})(\s*sem\s*juros)?/i);
+  if (m) {
+    const base = `${m[1]}x de R$ ${m[2]}`;
+    return /sem\s*juros/i.test(m[3] || '') ? `${base} sem juros` : base;
+  }
+  return null;
+}
+
+// ── Extração de CUPOM (código/percentual) ─────────────────
+function extractCouponText(scope, scopeText) {
+  try {
+    if (scope && scope.querySelector) {
+      const badge = scope.querySelector(
+        '#couponBadge, .couponBadge, .vpc-coupon-badge, ' +
+        '[class*="coupon" i], [class*="cupom" i], [class*="voucher" i]'
+      );
+      if (badge) {
+        const t = (badge.textContent || '').replace(/\s+/g, ' ').trim();
+        const code = t.match(/\b[A-Z0-9]{4,15}\b/);
+        const pct  = t.match(/R\$\s*[\d.,]+|\d{1,2}%/);
+        if (/cupom|coupon|voucher|desconto/i.test(t) || code) {
+          return (code ? code[0] : (pct ? pct[0] : t)).slice(0, 40);
+        }
+      }
+    }
+  } catch (_) {}
+  if (scopeText) {
+    const m = scopeText.match(/cupom[:\s]*([A-Z0-9]{4,15})/i)
+           || scopeText.match(/c[óo]digo[:\s]*([A-Z0-9]{4,15})/i)
+           || scopeText.match(/([A-Z0-9]{4,15})\s*(?:de\s*)?cupom/i);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+// ── Preço à vista no PIX (explícito) ──────────────────────
+// Procura "R$ X no Pix" / "Pix: R$ X"; senão devolve o fallback (menor preço).
+function extractPixPriceNum(scopeText, fallback) {
+  if (scopeText) {
+    const m = scopeText.match(/R\$\s*([\d.]+,\d{2})\s*(?:no\s*)?pix/i)
+           || scopeText.match(/pix[:\s]*R\$\s*([\d.]+,\d{2})/i);
+    if (m) {
+      const v = parseFloat(m[1].replace(/\./g, '').replace(',', '.'));
+      if (v > 0) return v;
+    }
+  }
+  return fallback || 0;
+}
+
+// ── Descrição (apenas em PDP / página do produto) ─────────
+function extractDescriptionText() {
+  let desc = '';
+  const meta = document.querySelector('meta[property="og:description"], meta[name="description"]');
+  if (meta) desc = (meta.getAttribute('content') || '').trim();
+  const sel = document.querySelector(
+    '.ui-pdp-description__content, #productDescription, #feature-bullets, ' +
+    '.product-intro__description, .product-description, [class*="description" i]'
+  );
+  if (sel) {
+    const t = (sel.textContent || '').replace(/\s+/g, ' ').trim();
+    if (t.length > desc.length) desc = t;
+  }
+  return desc ? desc.slice(0, 1200) : null;
 }
 
 // ─────────────────────────────────────────────────────────

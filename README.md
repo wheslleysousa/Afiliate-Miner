@@ -1,4 +1,4 @@
-# Affiliate Miner — Extensão Chrome (v2.1.0)
+# Affiliate Miner — Extensão Chrome (v2.2.0)
 
 Minerador inteligente de produtos afiliados. Extrai produtos direto das lojas
 (Mercado Livre, Shopee, Amazon, AliExpress, Shein) e **sincroniza automaticamente

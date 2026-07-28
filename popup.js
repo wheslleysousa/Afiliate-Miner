@@ -212,7 +212,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const discountStr = prod.discount_pct || prod.discountPercent
         ? `-${prod.discount_pct || prod.discountPercent}%`
         : '';
-      const imgSrc  = prod.image_url || prod.image || 'https://via.placeholder.com/48';
+      const imgFallback = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><rect width='48' height='48' rx='9' fill='%23151a26'/><path d='M14 30l6-7 5 6 4-5 5 6' stroke='%232563eb' stroke-width='2' fill='none'/><circle cx='19' cy='18' r='2.5' fill='%23facc15'/></svg>";
+      const imgSrc  = prod.image_url || prod.image || imgFallback;
       const ratingV = prod.stars     || prod.rating  || '0.0';
       const salesV  = prod.sales_count
         ? prod.sales_count
@@ -220,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const freeShip= prod.free_shipping || prod.freeShipping;
 
       card.innerHTML = `
-        <img class="product-thumb" src="${imgSrc}" alt="${prod.title || 'Produto'}" />
+        <img class="product-thumb" src="${imgSrc}" alt="${prod.title || 'Produto'}" onerror="this.onerror=null;this.src='${imgFallback}'" />
         <div class="product-details">
           <div class="product-title">${prod.title || 'Produto sem título'}</div>
           <div class="product-prices">
@@ -471,6 +472,16 @@ document.addEventListener('DOMContentLoaded', () => {
         price_to: doc.price_to, title: doc.title, image_url: doc.image_url,
         miners: newMiners, mineCount: newCount,
       };
+      if (doc.coupon)               patch.coupon = doc.coupon;
+      if (doc.installments)         patch.installments = doc.installments;
+      if (doc.pix_price)            patch.pix_price = doc.pix_price;
+      if (doc.description)          patch.description = doc.description;
+      if (doc.price_from)           patch.price_from = doc.price_from;
+      if (doc.stars)                patch.stars = doc.stars;
+      if (doc.sales_count)          patch.sales_count = doc.sales_count;
+      if (doc.discount_pct != null) patch.discount_pct = doc.discount_pct;
+      if (doc.free_shipping)        patch.free_shipping = doc.free_shipping;
+
       const mask = Object.keys(patch).map(f => `updateMask.fieldPaths=${f}`).join('&');
       await fetch(`${FS_BASE}/products/${globalId}?${mask}`, {
         method: 'PATCH', headers,
