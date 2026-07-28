@@ -357,7 +357,7 @@ function renderDraggableOverlay() {
           <div class="am-logo-icon">⚡</div>
           <div>
             <div class="am-header-title">AFFILIATE MINER</div>
-            <div class="am-header-ver">v2.3.1</div>
+            <div class="am-header-ver">v2.4.0</div>
           </div>
         </div>
         <div class="am-header-actions">
@@ -989,7 +989,7 @@ function extractRealProductData(element) {
       if (sales === 0) sales = parseSalesCount(cardText);
 
       // 7. Shipping & Interest
-      if (cardText.toLowerCase().includes('frete grátis')) freeShipping = true;
+      if (/frete\s*gr[áa]tis|chegar[áa]\s*gr[áa]tis|envio\s*gr[áa]tis|entrega\s*gr[áa]tis/i.test(cardText)) freeShipping = true;
       if (cardText.toLowerCase().includes('sem juros')) noInterest = true;
 
       // 8. Image & Link
@@ -1070,7 +1070,7 @@ function extractRealProductData(element) {
       const bodyText = document.body.textContent;
       sales = parseSalesCount(bodyText);
 
-      if (bodyText.toLowerCase().includes('frete grátis')) freeShipping = true;
+      if (/frete\s*gr[áa]tis|chegar[áa]\s*gr[áa]tis|envio\s*gr[áa]tis|entrega\s*gr[áa]tis/i.test(bodyText)) freeShipping = true;
       if (bodyText.toLowerCase().includes('sem juros')) noInterest = true;
 
       const imgEl = document.querySelector(
@@ -1286,102 +1286,89 @@ async function enrichProductDataInBackground(product) {
 /* ═══════════════════════════════════════
    8. SMART FILTERING ENGINE
    ═══════════════════════════════════════ */
-async function processAndFilterProduct(product) {
-  if (!product || !product.title) return;
+async function processAndFilterProduct(product, manual = false) {
+  if (!product || !product.title) return false;
 
   // Enrich product details in background if card thumbnail lacks sales/rating text
   product = await enrichProductDataInBackground(product);
 
   const f = qualityFilters;
 
+  // Descarta com contagem; no modo manual mostra um toast explicando o motivo.
+  const discard = (reason) => {
+    discardedCount++;
+    saveStateToStorage();
+    renderDraggableOverlay();
+    if (manual) showToast(`🚫 Fora do filtro — ${reason}`);
+    return false;
+  };
+
   // Keyword Filter
   if (f.category && f.category.trim() !== '') {
     const kw = f.category.toLowerCase().trim();
-    if (!product.title.toLowerCase().includes(kw)) return recordDiscard(`Fora da Palavra-chave "${f.category}"`);
+    if (!product.title.toLowerCase().includes(kw)) return discard(`palavra-chave "${f.category}"`);
   }
 
   // ── FILTROS ESTRITOS ──────────────────────────────────────────────────
   // Regra: se um filtro de mínimo está ATIVO, o produto só passa se o valor
   // for CONHECIDO e atender ao mínimo. Valor não identificado = descartado.
-  // (Ex.: mínimo 1000 vendas → 999 não entra; desconhecido também não entra.)
+  // (Ex.: mínimo 20000 vendas → 1000 não entra; desconhecido também não entra.)
 
   // Preço mínimo / máximo
   if (f.minPrice && f.minPrice > 0) {
-    if (!(product.pixPrice > 0)) return recordDiscard('Preço não identificado (filtro de preço mín. ativo)');
-    if (product.pixPrice < f.minPrice) return recordDiscard(`Preço < Min (R$ ${product.pixPrice} < R$ ${f.minPrice})`);
+    if (!(product.pixPrice > 0)) return discard('preço não identificado');
+    if (product.pixPrice < f.minPrice) return discard(`preço R$ ${product.pixPrice} < mín. R$ ${f.minPrice}`);
   }
   if (f.maxPrice && f.maxPrice > 0) {
-    if (!(product.pixPrice > 0)) return recordDiscard('Preço não identificado (filtro de preço máx. ativo)');
-    if (product.pixPrice > f.maxPrice) return recordDiscard(`Preço > Max (R$ ${product.pixPrice} > R$ ${f.maxPrice})`);
+    if (!(product.pixPrice > 0)) return discard('preço não identificado');
+    if (product.pixPrice > f.maxPrice) return discard(`preço R$ ${product.pixPrice} > máx. R$ ${f.maxPrice}`);
   }
 
   // Desconto mínimo — precisa ter desconto conhecido >= mínimo
   if (f.minDiscount && f.minDiscount > 0) {
-    if (!(product.discountPercent > 0)) return recordDiscard(`Sem desconto identificado (mín. ${f.minDiscount}%)`);
-    if (product.discountPercent < f.minDiscount) return recordDiscard(`Desconto insuficiente (${product.discountPercent}% < ${f.minDiscount}%)`);
+    if (!(product.discountPercent > 0)) return discard(`sem desconto (mín. ${f.minDiscount}%)`);
+    if (product.discountPercent < f.minDiscount) return discard(`desconto ${product.discountPercent}% < mín. ${f.minDiscount}%`);
   }
 
   // Avaliação mínima — precisa ter nota conhecida >= mínimo
   if (f.minRating && f.minRating > 0) {
-    if (!(product.rating > 0)) return recordDiscard(`Sem avaliação identificada (mín. ${f.minRating}★)`);
-    if (product.rating < f.minRating) return recordDiscard(`Avaliação < Min (${product.rating}★ < ${f.minRating}★)`);
+    if (!(product.rating > 0)) return discard(`sem avaliação (mín. ${f.minRating}★)`);
+    if (product.rating < f.minRating) return discard(`avaliação ${product.rating}★ < mín. ${f.minRating}★`);
   }
 
   // Vendas mínimas — precisa ter vendas conhecidas >= mínimo
   if (f.minSales && f.minSales > 0) {
-    if (!(product.sales > 0)) return recordDiscard(`Sem nº de vendas identificado (mín. ${f.minSales})`);
-    if (product.sales < f.minSales) return recordDiscard(`Vendas < Min (${product.sales} < ${f.minSales})`);
+    if (!(product.sales > 0)) return discard(`sem nº de vendas (mín. ${f.minSales})`);
+    if (product.sales < f.minSales) return discard(`vendas ${product.sales} < mín. ${f.minSales}`);
   }
 
   // Checkbox Filters
-  if (f.freeShipping && !product.freeShipping) return recordDiscard('Exige Frete Grátis');
-  if (f.noInterest && !product.noInterest) return recordDiscard('Exige Sem Juros');
+  if (f.freeShipping && !product.freeShipping) return discard('exige Frete Grátis');
+  if (f.noInterest && !product.noInterest) return discard('exige Sem Juros');
 
   // Duplicate Check
-  if (minedProducts.some((p) => p.title === product.title)) return;
+  if (minedProducts.some((p) => p.title === product.title)) {
+    if (manual) showToast('⚠️ Produto já está no histórico');
+    return false;
+  }
 
   minedProducts.push(product);
   saveStateToStorage();
   renderDraggableOverlay();
   showToast(`✅ "${product.title.substring(0, 22)}…" Aprovado!`);
+  return true;
 }
 
-function recordDiscard(reason) {
-  discardedCount++;
-  saveStateToStorage();
-  renderDraggableOverlay();
-}
-
-function mineCurrentPageProduct(force = true) {
+// manual=true → clique no botão "Minerar" (aplica filtros e avisa se não passar)
+// manual=false → mineração automática (aplica filtros silenciosamente)
+function mineCurrentPageProduct(manual = true) {
   const prod = extractRealProductData(null);
-  if (prod) {
-    if (force) {
-      if (!minedProducts.some((p) => p.title === prod.title)) {
-        minedProducts.push(prod);
-        saveStateToStorage();
-        renderDraggableOverlay();
-      }
-      showToast(`✅ "${prod.title ? prod.title.substring(0, 22) : 'Produto'}…" Minerado com Sucesso!`);
-    } else {
-      processAndFilterProduct(prod);
-    }
-  }
+  if (prod) processAndFilterProduct(prod, manual);
 }
 
-function mineCardProduct(card, force = true) {
+function mineCardProduct(card, manual = false) {
   const prod = extractRealProductData(card);
-  if (prod) {
-    if (force) {
-      if (!minedProducts.some((p) => p.title === prod.title)) {
-        minedProducts.push(prod);
-        saveStateToStorage();
-        renderDraggableOverlay();
-      }
-      showToast(`✅ "${prod.title ? prod.title.substring(0, 22) : 'Produto'}…" Minerado com Sucesso!`);
-    } else {
-      processAndFilterProduct(prod);
-    }
-  }
+  if (prod) processAndFilterProduct(prod, manual);
 }
 
 /* ═══════════════════════════════════════
