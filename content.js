@@ -357,7 +357,7 @@ function renderDraggableOverlay() {
           <div class="am-logo-icon">⚡</div>
           <div>
             <div class="am-header-title">AFFILIATE MINER</div>
-            <div class="am-header-ver">v2.6.0</div>
+            <div class="am-header-ver">v2.6.1</div>
           </div>
         </div>
         <div class="am-header-actions">
@@ -1121,6 +1121,7 @@ function extractRealProductData(element) {
       pix_price:    pixExplicit > 0 ? numToAppPrice(pixExplicit)
                      : (pixPrice > 0 ? numToAppPrice(pixPrice) : null),
       installments: installments,
+      installments_interest_free: !!(installments && /sem\s*juros/i.test(installments)),
       coupon:       coupon,
       shipping:     freeShipping ? 'Frete grátis' : null,
       free_shipping:!!freeShipping,
@@ -1186,14 +1187,16 @@ function parseSalesCount(text) {
 }
 
 // ── Extração de PARCELAS (parcelado no cartão) ────────────
-// Aceita "12x de R$ 45,90 sem juros", "10x R$ 12,34", "em até 12x"
+// PRIORIZA o parcelado SEM JUROS quando disponível (mostra só o valor da parcela).
+// Aceita "em até 12x de R$ 45,90 sem juros", "12x R$ 12,34", etc.
 function extractInstallmentsText(scopeText) {
   if (!scopeText) return null;
-  const m = scopeText.match(/(\d{1,2})\s*x\s*(?:de\s*)?R\$\s*([\d.]+,\d{2})(\s*sem\s*juros)?/i);
-  if (m) {
-    const base = `${m[1]}x de R$ ${m[2]}`;
-    return /sem\s*juros/i.test(m[3] || '') ? `${base} sem juros` : base;
-  }
+  // 1º) Preferir parcela SEM JUROS (em qualquer posição do texto)
+  const semJuros = scopeText.match(/(?:em\s*at[ée]\s*)?(\d{1,2})\s*x\s*(?:de\s*)?R\$\s*([\d.]+,\d{2})\s*sem\s*juros/i);
+  if (semJuros) return `${semJuros[1]}x de R$ ${semJuros[2]} sem juros`;
+  // 2º) Qualquer parcela (com juros / sem indicação)
+  const qualquer = scopeText.match(/(?:em\s*at[ée]\s*)?(\d{1,2})\s*x\s*(?:de\s*)?R\$\s*([\d.]+,\d{2})/i);
+  if (qualquer) return `${qualquer[1]}x de R$ ${qualquer[2]}`;
   return null;
 }
 

@@ -447,6 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
       price_from:   product.price_from || (product.oldPrice > 0 ? numToPrice(product.oldPrice) : null),
       pix_price:    product.pix_price  || null,
       installments: product.installments || null,
+      installments_interest_free: !!product.installments_interest_free,
       coupon:       product.coupon     || null,
       shipping:     product.freeShipping ? 'Frete grátis' : (product.shipping || null),
       free_shipping:!!(product.freeShipping || product.free_shipping),
