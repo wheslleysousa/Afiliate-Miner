@@ -357,7 +357,7 @@ function renderDraggableOverlay() {
           <div class="am-logo-icon">⚡</div>
           <div>
             <div class="am-header-title">AFFILIATE MINER</div>
-            <div class="am-header-ver">v2.3.0</div>
+            <div class="am-header-ver">v2.3.1</div>
           </div>
         </div>
         <div class="am-header-actions">
@@ -979,40 +979,14 @@ function extractRealProductData(element) {
         }
       }
 
-      // 6. Sales Extraction
-      const salesRegexes = [
-        /(?:Mais de|\+)\s*(\d+(?:[\.,]\d+)?)\s*(mil|k)?\s*(?:produtos?\s*)?vendidos?/i,
-        /(\d+(?:[\.,]\d+)?)\s*(mil|k)?\s*vendidos?/i,
-        /Classifica[cç][aã]o.*?\.\s*(?:Mais de|\+)?\s*(\d+(?:[\.,]\d+)?)\s*(mil|k)?\s*produtos?\s*vendidos?/i
-      ];
-
-      for (const regex of salesRegexes) {
-        const sm = cardText.match(regex);
-        if (sm) {
-          let num = parseFloat(sm[1].replace(/\./g, '').replace(',', '.'));
-          if (sm[2] && /mil|k/i.test(sm[2])) num *= 1000;
-          if (num > 0) {
-            sales = Math.round(num);
-            break;
-          }
-        }
+      // 6. Sales Extraction (parser preciso — não junta números vizinhos)
+      // Prioriza os aria-labels de vendas (mais confiáveis), depois o texto do card.
+      const salesAriaEls = element.querySelectorAll('[aria-label*="vendido" i], [aria-label*="comprado" i]');
+      for (const el of salesAriaEls) {
+        const v = parseSalesCount(el.getAttribute('aria-label') || '');
+        if (v > 0) { sales = v; break; }
       }
-
-      if (sales === 0) {
-        const salesAriaEls = element.querySelectorAll('[aria-label*="vendido"], [aria-label*="vendidos"]');
-        for (const el of salesAriaEls) {
-          const label = el.getAttribute('aria-label') || '';
-          const sm = label.match(/(?:Mais de|\+)?\s*(\d+(?:[\.,]\d+)?)\s*(mil|k)?\s*(?:produtos?\s*)?vendidos?/i);
-          if (sm) {
-            let num = parseFloat(sm[1].replace(/\./g, '').replace(',', '.'));
-            if (sm[2] && /mil|k/i.test(sm[2])) num *= 1000;
-            if (num > 0) {
-              sales = Math.round(num);
-              break;
-            }
-          }
-        }
-      }
+      if (sales === 0) sales = parseSalesCount(cardText);
 
       // 7. Shipping & Interest
       if (cardText.toLowerCase().includes('frete grátis')) freeShipping = true;
@@ -1094,12 +1068,7 @@ function extractRealProductData(element) {
       }
 
       const bodyText = document.body.textContent;
-      const sm = bodyText.match(/(\+?\s*\d+[\.,]?\d*)\s*(mil|k)?\s*(vendido|comprado|venda)/i);
-      if (sm) {
-        let num = parseFloat(sm[1].replace('+', '').replace(/\s/g, '').replace(',', '.'));
-        if (sm[2] && /mil|k/i.test(sm[2])) num *= 1000;
-        sales = Math.round(num);
-      }
+      sales = parseSalesCount(bodyText);
 
       if (bodyText.toLowerCase().includes('frete grátis')) freeShipping = true;
       if (bodyText.toLowerCase().includes('sem juros')) noInterest = true;
@@ -1180,6 +1149,27 @@ function cleanLinkUrl(url) {
 function numToAppPrice(num) {
   if (!num || num <= 0) return '';
   return `R$ ${num.toFixed(2).replace('.', ',')}`;
+}
+
+// ── Parser PRECISO de nº de vendas ────────────────────────
+// Lê o número imediatamente ligado a "vendidos/comprados", SEM juntar com
+// números vizinhos (ex.: não confunde a avaliação "4.7" com as vendas).
+// Trata "mil"/"k" e milhar/decimal pt-BR corretamente.
+//   "+10 mil vendidos" → 10000 · "250 mil" → 250000 · "1.000 vendidos" → 1000
+//   "1,2 mil vendidos" → 1200 · "500 vendidos" → 500 · "4.7 250 mil vend" → 250000
+function parseSalesCount(text) {
+  if (!text) return 0;
+  const t = String(text).replace(/ /g, ' ');
+  // Número "tight" (1.000 | 1000 | 10 | 1,2) + unidade opcional + termo de vendas.
+  const re = /(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d+))?\s*(mil|k)?\s*(?:produtos?\s*)?(?:vendidos?|comprados?)/i;
+  const m = t.match(re);
+  if (!m) return 0;
+  const intPart = m[1].replace(/\./g, '');   // "1.000" → "1000"
+  const decPart = m[2] ? '.' + m[2] : '';     // ",2" → ".2"
+  let num = parseFloat(intPart + decPart);
+  if (isNaN(num) || num <= 0) return 0;
+  if (m[3] && /mil|k/i.test(m[3])) num *= 1000;
+  return Math.round(num);
 }
 
 // ── Extração de PARCELAS (parcelado no cartão) ────────────
@@ -1282,15 +1272,10 @@ async function enrichProductDataInBackground(product) {
       }
     }
 
-    // Extract Sales from PDP
+    // Extract Sales from PDP (parser preciso)
     if (product.sales === 0 && doc.body) {
-      const bText = doc.body.textContent;
-      const sm = bText.match(/(\+?\s*\d+[\.,]?\d*)\s*(mil|k)?\s*(vendido|comprado|venda)/i);
-      if (sm) {
-        let num = parseFloat(sm[1].replace('+', '').replace(/\s/g, '').replace(',', '.'));
-        if (sm[2] && /mil|k/i.test(sm[2])) num *= 1000;
-        product.sales = Math.round(num);
-      }
+      const v = parseSalesCount(doc.body.textContent);
+      if (v > 0) product.sales = v;
     }
   } catch (e) {
     // Ignore fetch errors silently
