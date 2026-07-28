@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "Affiliate Miner",
+  "version": "2.1.0",
+  "description": "Minerador inteligente de produtos afiliados — sincroniza automaticamente com o Afiliate.",
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon":  "icons/icon48.png",
+    "default_title": "Affiliate Miner"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "js": ["content.js"],
+      "matches": [
+        "*://*.mercadolivre.com.br/*",
+        "*://*.mercadolibre.com/*",
+        "*://*.shopee.com.br/*",
+        "*://*.amazon.com.br/*",
+        "*://*.aliexpress.com/*",
+        "*://*.shein.com.br/*"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting",
+    "downloads",
+    "alarms"
+  ],
+  "host_permissions": [
+    "*://*.mercadolivre.com.br/*",
+    "*://*.mercadolibre.com/*",
+    "*://*.shopee.com.br/*",
+    "*://*.amazon.com.br/*",
+    "*://*.aliexpress.com/*",
+    "*://*.shein.com.br/*",
+    "https://identitytoolkit.googleapis.com/*",
+    "https://securetoken.googleapis.com/*",
+    "https://firestore.googleapis.com/*"
+  ]
+}
