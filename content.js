@@ -357,7 +357,7 @@ function renderDraggableOverlay() {
           <div class="am-logo-icon">⚡</div>
           <div>
             <div class="am-header-title">AFFILIATE MINER</div>
-            <div class="am-header-ver">v2.2.0</div>
+            <div class="am-header-ver">v2.3.0</div>
           </div>
         </div>
         <div class="am-header-actions">
@@ -830,6 +830,9 @@ function showToast(message, type = 'success') {
 
 function extractAndesPrice(container) {
   if (!container) return 0;
+
+  // 1) Caminho preferencial: fração do valor (preço real do Mercado Livre).
+  //    Isto ignora qualquer badge de "% OFF" que exista no mesmo bloco.
   const fractionEl = container.querySelector('.andes-money-amount__fraction');
   if (fractionEl) {
     const intPart = parseInt(fractionEl.textContent.replace(/\./g, ''), 10) || 0;
@@ -841,11 +844,24 @@ function extractAndesPrice(container) {
     }
     return intPart;
   }
-  const raw = container.textContent.replace(/R\$\s*/g, '').trim();
-  const m = raw.match(/(\d[\d.]*),(\d{2})/);
+
+  const raw = (container.textContent || '');
+
+  // 2) Um valor com "%" é DESCONTO, nunca preço. Evita capturar "20% OFF" como R$ 20,00.
+  if (/%/.test(raw)) return 0;
+
+  const cleaned = raw.replace(/R\$\s*/g, '').trim();
+
+  // 3) Preço com centavos explícitos: "1.299,90" → 1299.90
+  const m = cleaned.match(/(\d[\d.]*),(\d{2})/);
   if (m) return parseFloat(m[1].replace(/\./g, '') + '.' + m[2]);
-  const m2 = raw.match(/(\d[\d.]*)/);
-  if (m2) return parseFloat(m2[1].replace(/\./g, ''));
+
+  // 4) Sem centavos: só aceita se houver indício de moeda (R$) no texto original,
+  //    para não confundir números soltos (quantidade, parcelas, %) com preço.
+  if (/R\$/.test(raw)) {
+    const m2 = cleaned.match(/(\d[\d.]*)/);
+    if (m2) return parseFloat(m2[1].replace(/\./g, ''));
+  }
   return 0;
 }
 
@@ -878,7 +894,12 @@ function extractRealProductData(element) {
       const candidatePrices = [];
       const amountEls = element.querySelectorAll('.andes-money-amount, [class*="price"]');
       for (const el of amountEls) {
-        if (el.closest('.poly-price__old, .ui-search-price__part--original, s, del, .ui-search-installments, .poly-price__credit-card, [class*="installment"]')) continue;
+        // Ignora preço antigo, parcelas, preço no cartão E o badge de desconto (% OFF)
+        if (el.closest('.poly-price__old, .ui-search-price__part--original, s, del, ' +
+                       '.ui-search-installments, .poly-price__credit-card, [class*="installment"], ' +
+                       '.poly-price__discount, .ui-search-price__discount, [class*="discount"]')) continue;
+        // Segurança extra: se o texto do elemento contém "%", é desconto, não preço
+        if ((el.textContent || '').includes('%')) continue;
         const p = extractAndesPrice(el);
         if (p > 0 && p !== oldPrice) {
           candidatePrices.push(p);
@@ -1022,7 +1043,9 @@ function extractRealProductData(element) {
       const pdpCandidatePrices = [];
       const pdpAmountEls = document.querySelectorAll('.ui-pdp-price__part--medium .andes-money-amount, .ui-pdp-price__second-line .andes-money-amount, .ui-pdp-price__part:not(.ui-pdp-price__part--original) .andes-money-amount');
       for (const el of pdpAmountEls) {
-        if (el.closest('.ui-pdp-price__part--original, s, del, .ui-pdp-price__subtitles, [class*="installments"]')) continue;
+        if (el.closest('.ui-pdp-price__part--original, s, del, .ui-pdp-price__subtitles, ' +
+                       '[class*="installments"], [class*="discount"]')) continue;
+        if ((el.textContent || '').includes('%')) continue;
         const p = extractAndesPrice(el);
         if (p > 0 && p !== oldPrice) pdpCandidatePrices.push(p);
       }
@@ -1292,27 +1315,37 @@ async function processAndFilterProduct(product) {
     if (!product.title.toLowerCase().includes(kw)) return recordDiscard(`Fora da Palavra-chave "${f.category}"`);
   }
 
-  // Price Filters
-  if (f.minPrice && f.minPrice > 0 && product.pixPrice > 0 && product.pixPrice < f.minPrice) {
-    return recordDiscard(`Preço < Min (R$ ${product.pixPrice} < R$ ${f.minPrice})`);
+  // ── FILTROS ESTRITOS ──────────────────────────────────────────────────
+  // Regra: se um filtro de mínimo está ATIVO, o produto só passa se o valor
+  // for CONHECIDO e atender ao mínimo. Valor não identificado = descartado.
+  // (Ex.: mínimo 1000 vendas → 999 não entra; desconhecido também não entra.)
+
+  // Preço mínimo / máximo
+  if (f.minPrice && f.minPrice > 0) {
+    if (!(product.pixPrice > 0)) return recordDiscard('Preço não identificado (filtro de preço mín. ativo)');
+    if (product.pixPrice < f.minPrice) return recordDiscard(`Preço < Min (R$ ${product.pixPrice} < R$ ${f.minPrice})`);
   }
-  if (f.maxPrice && f.maxPrice > 0 && product.pixPrice > 0 && product.pixPrice > f.maxPrice) {
-    return recordDiscard(`Preço > Max (R$ ${product.pixPrice} > R$ ${f.maxPrice})`);
+  if (f.maxPrice && f.maxPrice > 0) {
+    if (!(product.pixPrice > 0)) return recordDiscard('Preço não identificado (filtro de preço máx. ativo)');
+    if (product.pixPrice > f.maxPrice) return recordDiscard(`Preço > Max (R$ ${product.pixPrice} > R$ ${f.maxPrice})`);
   }
 
-  // Discount Filter (Only discard if discount is known AND strictly lower than minDiscount)
-  if (f.minDiscount && f.minDiscount > 0 && product.discountPercent > 0 && product.discountPercent < f.minDiscount) {
-    return recordDiscard(`Desconto % insuficiente (${product.discountPercent}% < ${f.minDiscount}%)`);
+  // Desconto mínimo — precisa ter desconto conhecido >= mínimo
+  if (f.minDiscount && f.minDiscount > 0) {
+    if (!(product.discountPercent > 0)) return recordDiscard(`Sem desconto identificado (mín. ${f.minDiscount}%)`);
+    if (product.discountPercent < f.minDiscount) return recordDiscard(`Desconto insuficiente (${product.discountPercent}% < ${f.minDiscount}%)`);
   }
 
-  // Rating Filter (Only discard if rating is known AND strictly lower than minRating)
-  if (f.minRating && f.minRating > 0 && product.rating > 0 && product.rating < f.minRating) {
-    return recordDiscard(`Avaliação < Min (${product.rating}★ < ${f.minRating}★)`);
+  // Avaliação mínima — precisa ter nota conhecida >= mínimo
+  if (f.minRating && f.minRating > 0) {
+    if (!(product.rating > 0)) return recordDiscard(`Sem avaliação identificada (mín. ${f.minRating}★)`);
+    if (product.rating < f.minRating) return recordDiscard(`Avaliação < Min (${product.rating}★ < ${f.minRating}★)`);
   }
 
-  // Sales Filter (Only discard if sales is known AND strictly lower than minSales)
-  if (f.minSales && f.minSales > 0 && product.sales > 0 && product.sales < f.minSales) {
-    return recordDiscard(`Vendas < Min (${product.sales} < ${f.minSales})`);
+  // Vendas mínimas — precisa ter vendas conhecidas >= mínimo
+  if (f.minSales && f.minSales > 0) {
+    if (!(product.sales > 0)) return recordDiscard(`Sem nº de vendas identificado (mín. ${f.minSales})`);
+    if (product.sales < f.minSales) return recordDiscard(`Vendas < Min (${product.sales} < ${f.minSales})`);
   }
 
   // Checkbox Filters

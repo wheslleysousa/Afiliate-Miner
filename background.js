@@ -76,32 +76,14 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 /* ═══════════════════════════════════════
-   STORAGE CHANGE — Sync automático quando
-   content.js adiciona novo produto
+   ENVIO AO APP — SOMENTE MANUAL
+   ─────────────────────────────────────────
+   O envio para o app (Firestore) acontece APENAS quando o usuário clica em
+   "Enviar Todos para o Afiliate" no popup (popup.js → EXPORT_TO_AFILIATE abaixo).
+   NÃO sincronizamos automaticamente ao minerar: os produtos ficam salvos apenas
+   localmente na extensão até o clique explícito. (Removido o antigo auto-sync via
+   chrome.storage.onChanged a pedido do usuário.)
    ═══════════════════════════════════════ */
-chrome.storage.onChanged.addListener(async (changes, area) => {
-  if (area !== 'local' || !changes.affiliateMinerState) return;
-
-  const newState = changes.affiliateMinerState.newValue;
-  const oldState = changes.affiliateMinerState.oldValue;
-
-  if (!newState?.isLoggedIn || !newState?.uid || !newState?.idToken) return;
-
-  const oldCount = oldState?.minedProducts?.length ?? 0;
-  const newCount = newState?.minedProducts?.length ?? 0;
-  if (newCount <= oldCount) return; // sem produto novo
-
-  // Pegar apenas os produtos recem adicionados
-  const newProducts = newState.minedProducts.slice(0, newCount - oldCount);
-
-  for (const product of newProducts) {
-    try {
-      await syncProductToFirestore(product, newState.uid, newState.idToken);
-    } catch (e) {
-      console.warn('[AffiliateMiner] Falha ao sincronizar produto:', e.message);
-    }
-  }
-});
 
 /* ═══════════════════════════════════════
    FIRESTORE SYNC
