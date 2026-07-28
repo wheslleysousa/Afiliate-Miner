@@ -357,7 +357,7 @@ function renderDraggableOverlay() {
           <div class="am-logo-icon">⚡</div>
           <div>
             <div class="am-header-title">AFFILIATE MINER</div>
-            <div class="am-header-ver">v2.4.0</div>
+            <div class="am-header-ver">v2.5.0</div>
           </div>
         </div>
         <div class="am-header-actions">
@@ -669,22 +669,22 @@ function bindOverlayListeners(overlay) {
 
   const minSalesInput = overlay.querySelector('#am-input-minsales');
   if (minSalesInput) {
-    minSalesInput.oninput = () => { qualityFilters.minSales = parseInt(minSalesInput.value, 10) || 0; saveStateToStorage(); };
+    minSalesInput.oninput = () => { qualityFilters.minSales = parseInt(minSalesInput.value, 10) || 0; saveStateToStorage(); scheduleReapply(); };
   }
 
   const minDiscInput = overlay.querySelector('#am-input-mindisc');
   if (minDiscInput) {
-    minDiscInput.oninput = () => { qualityFilters.minDiscount = parseFloat(minDiscInput.value) || 0; saveStateToStorage(); };
+    minDiscInput.oninput = () => { qualityFilters.minDiscount = parseFloat(minDiscInput.value) || 0; saveStateToStorage(); scheduleReapply(); };
   }
 
   const maxPriceInput = overlay.querySelector('#am-input-maxprice');
   if (maxPriceInput) {
-    maxPriceInput.oninput = () => { qualityFilters.maxPrice = maxPriceInput.value !== '' ? parseFloat(maxPriceInput.value) : null; saveStateToStorage(); };
+    maxPriceInput.oninput = () => { qualityFilters.maxPrice = maxPriceInput.value !== '' ? parseFloat(maxPriceInput.value) : null; saveStateToStorage(); scheduleReapply(); };
   }
 
   const minRatingInput = overlay.querySelector('#am-input-minrating');
   if (minRatingInput) {
-    minRatingInput.oninput = () => { qualityFilters.minRating = parseFloat(minRatingInput.value) || 0; saveStateToStorage(); };
+    minRatingInput.oninput = () => { qualityFilters.minRating = parseFloat(minRatingInput.value) || 0; saveStateToStorage(); scheduleReapply(); };
   }
 
   overlay.querySelectorAll('.am-chip-btn').forEach(chip => {
@@ -699,14 +699,15 @@ function bindOverlayListeners(overlay) {
         qualityFilters.minDiscount = parseFloat(val);
       }
       saveStateToStorage();
+      reapplyFiltersToMinedList(false); // chip = valor final, aplica na hora
     };
   });
 
   const noIntChk = overlay.querySelector('#am-chk-nointerest');
-  if (noIntChk) noIntChk.onchange = () => { qualityFilters.noInterest = !!noIntChk.checked; saveStateToStorage(); };
+  if (noIntChk) noIntChk.onchange = () => { qualityFilters.noInterest = !!noIntChk.checked; saveStateToStorage(); reapplyFiltersToMinedList(false); };
 
   const freeShipChk = overlay.querySelector('#am-chk-freeship');
-  if (freeShipChk) freeShipChk.onchange = () => { qualityFilters.freeShipping = !!freeShipChk.checked; saveStateToStorage(); };
+  if (freeShipChk) freeShipChk.onchange = () => { qualityFilters.freeShipping = !!freeShipChk.checked; saveStateToStorage(); reapplyFiltersToMinedList(false); };
 }
 
 /* ═══════════════════════════════════════
@@ -1286,65 +1287,95 @@ async function enrichProductDataInBackground(product) {
 /* ═══════════════════════════════════════
    8. SMART FILTERING ENGINE
    ═══════════════════════════════════════ */
+// Retorna o MOTIVO da reprovação (string) ou null se o produto PASSA nos filtros.
+// Regra ESTRITA: com um filtro de mínimo ativo, só passa quem tem o valor
+// CONHECIDO e >= mínimo. Valor não identificado = reprovado.
+function filterRejectReason(product) {
+  const f = qualityFilters || {};
+  const num = (v) => (typeof v === 'number' ? v : parseFloat(v)) || 0;
+
+  const sales    = num(product.sales);
+  const discount = num(product.discountPercent != null ? product.discountPercent : product.discount_pct);
+  const rating   = num(product.rating != null ? product.rating : product.stars);
+  const price    = num(product.pixPrice);
+
+  // Palavra-chave
+  if (f.category && String(f.category).trim() !== '') {
+    const kw = String(f.category).toLowerCase().trim();
+    if (!String(product.title || '').toLowerCase().includes(kw)) return `palavra-chave "${f.category}"`;
+  }
+  // Preço mín/máx
+  if (f.minPrice > 0) {
+    if (!(price > 0)) return 'preço não identificado';
+    if (price < f.minPrice) return `preço R$ ${price} < mín. R$ ${f.minPrice}`;
+  }
+  if (f.maxPrice > 0) {
+    if (!(price > 0)) return 'preço não identificado';
+    if (price > f.maxPrice) return `preço R$ ${price} > máx. R$ ${f.maxPrice}`;
+  }
+  // Desconto mínimo
+  if (f.minDiscount > 0) {
+    if (!(discount > 0)) return `sem desconto (mín. ${f.minDiscount}%)`;
+    if (discount < f.minDiscount) return `desconto ${discount}% < mín. ${f.minDiscount}%`;
+  }
+  // Avaliação mínima
+  if (f.minRating > 0) {
+    if (!(rating > 0)) return `sem avaliação (mín. ${f.minRating}★)`;
+    if (rating < f.minRating) return `avaliação ${rating}★ < mín. ${f.minRating}★`;
+  }
+  // Vendas mínimas
+  if (f.minSales > 0) {
+    if (!(sales > 0)) return `sem nº de vendas (mín. ${f.minSales})`;
+    if (sales < f.minSales) return `vendas ${sales} < mín. ${f.minSales}`;
+  }
+  // Checkboxes
+  if (f.freeShipping && !(product.freeShipping || product.free_shipping)) return 'exige Frete Grátis';
+  if (f.noInterest && !product.noInterest) return 'exige Sem Juros';
+
+  return null;
+}
+
+// Remove da lista já minerada tudo que NÃO atende aos filtros atuais.
+// Chamado ao mudar um filtro e ao iniciar a mineração automática.
+function reapplyFiltersToMinedList(silent) {
+  if (!minedProducts.length) return;
+  const kept = [];
+  let removed = 0;
+  for (const p of minedProducts) {
+    if (filterRejectReason(p)) removed++;
+    else kept.push(p);
+  }
+  if (removed > 0) {
+    minedProducts = kept;
+    discardedCount += removed;
+    saveStateToStorage();
+    renderDraggableOverlay();
+    if (!silent) showToast(`🧹 ${removed} produto(s) removido(s) por não atender aos filtros`);
+  }
+}
+
+// Debounce: re-aplica os filtros à lista ~900ms após a última mudança
+// (evita remover produtos enquanto o usuário ainda está digitando o valor).
+let reapplyTimer = null;
+function scheduleReapply() {
+  clearTimeout(reapplyTimer);
+  reapplyTimer = setTimeout(() => reapplyFiltersToMinedList(false), 900);
+}
+
 async function processAndFilterProduct(product, manual = false) {
   if (!product || !product.title) return false;
 
   // Enrich product details in background if card thumbnail lacks sales/rating text
   product = await enrichProductDataInBackground(product);
 
-  const f = qualityFilters;
-
-  // Descarta com contagem; no modo manual mostra um toast explicando o motivo.
-  const discard = (reason) => {
+  const reason = filterRejectReason(product);
+  if (reason) {
     discardedCount++;
     saveStateToStorage();
     renderDraggableOverlay();
     if (manual) showToast(`🚫 Fora do filtro — ${reason}`);
     return false;
-  };
-
-  // Keyword Filter
-  if (f.category && f.category.trim() !== '') {
-    const kw = f.category.toLowerCase().trim();
-    if (!product.title.toLowerCase().includes(kw)) return discard(`palavra-chave "${f.category}"`);
   }
-
-  // ── FILTROS ESTRITOS ──────────────────────────────────────────────────
-  // Regra: se um filtro de mínimo está ATIVO, o produto só passa se o valor
-  // for CONHECIDO e atender ao mínimo. Valor não identificado = descartado.
-  // (Ex.: mínimo 20000 vendas → 1000 não entra; desconhecido também não entra.)
-
-  // Preço mínimo / máximo
-  if (f.minPrice && f.minPrice > 0) {
-    if (!(product.pixPrice > 0)) return discard('preço não identificado');
-    if (product.pixPrice < f.minPrice) return discard(`preço R$ ${product.pixPrice} < mín. R$ ${f.minPrice}`);
-  }
-  if (f.maxPrice && f.maxPrice > 0) {
-    if (!(product.pixPrice > 0)) return discard('preço não identificado');
-    if (product.pixPrice > f.maxPrice) return discard(`preço R$ ${product.pixPrice} > máx. R$ ${f.maxPrice}`);
-  }
-
-  // Desconto mínimo — precisa ter desconto conhecido >= mínimo
-  if (f.minDiscount && f.minDiscount > 0) {
-    if (!(product.discountPercent > 0)) return discard(`sem desconto (mín. ${f.minDiscount}%)`);
-    if (product.discountPercent < f.minDiscount) return discard(`desconto ${product.discountPercent}% < mín. ${f.minDiscount}%`);
-  }
-
-  // Avaliação mínima — precisa ter nota conhecida >= mínimo
-  if (f.minRating && f.minRating > 0) {
-    if (!(product.rating > 0)) return discard(`sem avaliação (mín. ${f.minRating}★)`);
-    if (product.rating < f.minRating) return discard(`avaliação ${product.rating}★ < mín. ${f.minRating}★`);
-  }
-
-  // Vendas mínimas — precisa ter vendas conhecidas >= mínimo
-  if (f.minSales && f.minSales > 0) {
-    if (!(product.sales > 0)) return discard(`sem nº de vendas (mín. ${f.minSales})`);
-    if (product.sales < f.minSales) return discard(`vendas ${product.sales} < mín. ${f.minSales}`);
-  }
-
-  // Checkbox Filters
-  if (f.freeShipping && !product.freeShipping) return discard('exige Frete Grátis');
-  if (f.noInterest && !product.noInterest) return discard('exige Sem Juros');
 
   // Duplicate Check
   if (minedProducts.some((p) => p.title === product.title)) {
@@ -1375,6 +1406,8 @@ function mineCardProduct(card, manual = false) {
    9. AUTO-SCROLL MINING
    ═══════════════════════════════════════ */
 function startAutoMining() {
+  // Garante que a lista atual já respeita os filtros vigentes antes de começar
+  reapplyFiltersToMinedList(true);
   if (autoMineInterval) clearInterval(autoMineInterval);
   autoMineInterval = setInterval(() => {
     if (!extActive || !autoMine) return;
