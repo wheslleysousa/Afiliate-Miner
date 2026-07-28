@@ -357,7 +357,7 @@ function renderDraggableOverlay() {
           <div class="am-logo-icon">⚡</div>
           <div>
             <div class="am-header-title">AFFILIATE MINER</div>
-            <div class="am-header-ver">v2.5.0</div>
+            <div class="am-header-ver">v2.5.1</div>
           </div>
         </div>
         <div class="am-header-actions">
@@ -875,10 +875,20 @@ function extractRealProductData(element) {
     const id = 'prod_' + Date.now() + '_' + Math.floor(Math.random() * 9999);
 
     if (element) {
-      const cardText = element.textContent;
+      // Amplia o escopo para o CARD COMPLETO (item de listagem), garantindo que
+      // vendas/frete/avaliação sejam lidos mesmo que o elemento clicado seja estreito.
+      const scopeEl = element.closest(
+        'li.ui-search-layout__item, .ui-search-layout__item, .ui-search-result__wrapper, ' +
+        '.poly-card, [data-sqe="item"], .shopee-search-item-result__item, ' +
+        '[data-component-type="s-search-result"], li, article'
+      ) || element;
+      const cardText = scopeEl.textContent || element.textContent || '';
 
       // 1. Title Extraction
       const titleEl = element.querySelector(
+        '.ui-search-item__title, .poly-component__title, ' +
+        '[data-testid="item-title"], .shopee-search-item-result__name, h2, h3'
+      ) || scopeEl.querySelector(
         '.ui-search-item__title, .poly-component__title, ' +
         '[data-testid="item-title"], .shopee-search-item-result__name, h2, h3'
       );
@@ -982,7 +992,7 @@ function extractRealProductData(element) {
 
       // 6. Sales Extraction (parser preciso — não junta números vizinhos)
       // Prioriza os aria-labels de vendas (mais confiáveis), depois o texto do card.
-      const salesAriaEls = element.querySelectorAll('[aria-label*="vendido" i], [aria-label*="comprado" i]');
+      const salesAriaEls = scopeEl.querySelectorAll('[aria-label*="vendido" i], [aria-label*="comprado" i], [aria-label*="vendas" i]');
       for (const el of salesAriaEls) {
         const v = parseSalesCount(el.getAttribute('aria-label') || '');
         if (v > 0) { sales = v; break; }
