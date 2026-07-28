@@ -31,6 +31,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginPasswordInput = document.getElementById('login-password');
   const userDisplayEmail   = document.getElementById('user-display-email');
 
+  const btnTogglePassword = document.getElementById('btn-toggle-password');
+  const iconEye           = document.getElementById('icon-eye');
+  const iconEyeOff        = document.getElementById('icon-eye-off');
+  const noAccountBox      = document.getElementById('no-account-box');
+  const btnCreateAccount  = document.getElementById('btn-create-account');
+
   const toggleExtActive = document.getElementById('toggle-ext-active');
   const toggleAutoMine  = document.getElementById('toggle-auto-mine');
   const automineBadge   = document.getElementById('automine-badge');
@@ -433,6 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
       platformId:   globalId.split('_').slice(1).join('_'),
       title:        product.title         || 'Sem título',
       description:  product.description   || null,
+      category:     product.category      || null,
       image_url:    product.image_url || product.image || null,
       pictures:     product.pictures  || (product.image ? [product.image] : []),
       video_url:    null,
@@ -476,6 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (doc.installments)         patch.installments = doc.installments;
       if (doc.pix_price)            patch.pix_price = doc.pix_price;
       if (doc.description)          patch.description = doc.description;
+      if (doc.category)             patch.category = doc.category;
       if (doc.price_from)           patch.price_from = doc.price_from;
       if (doc.stars)                patch.stars = doc.stars;
       if (doc.sales_count)          patch.sales_count = doc.sales_count;
@@ -537,7 +545,36 @@ document.addEventListener('DOMContentLoaded', () => {
       tabLogin.classList.remove('active');
       if (btnLoginText) btnLoginText.textContent = 'Abrir Afiliate para criar conta';
       if (registerNote) registerNote.style.display = 'block';
+      if (noAccountBox) noAccountBox.style.display = 'none';
     });
+  }
+
+  // ── Mostrar/ocultar senha ────────────────────────────────
+  if (btnTogglePassword && loginPasswordInput) {
+    btnTogglePassword.addEventListener('click', () => {
+      const showing = loginPasswordInput.type === 'text';
+      loginPasswordInput.type = showing ? 'password' : 'text';
+      if (iconEye)    iconEye.style.display    = showing ? 'block' : 'none';
+      if (iconEyeOff) iconEyeOff.style.display = showing ? 'none'  : 'block';
+      btnTogglePassword.title = showing ? 'Mostrar senha' : 'Ocultar senha';
+      btnTogglePassword.setAttribute('aria-label', showing ? 'Mostrar senha' : 'Ocultar senha');
+      loginPasswordInput.focus();
+    });
+  }
+
+  // ── Abrir o site do Afiliate para criar conta ────────────
+  function openAfiliateSignup() {
+    const signupUrl = `${APP_URL}/?signup=1`;
+    if (typeof chrome !== 'undefined' && chrome.tabs) {
+      chrome.tabs.create({ url: signupUrl });
+    } else {
+      window.open(signupUrl, '_blank');
+    }
+    showToast('Crie sua conta no site e volte aqui para entrar 👍');
+  }
+
+  if (btnCreateAccount) {
+    btnCreateAccount.addEventListener('click', openAfiliateSignup);
   }
 
   // ════════════════════════════════════════════════════════
@@ -561,6 +598,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!email || !email.includes('@')) { showToast('Por favor, informe um e-mail válido!'); return; }
       if (!pass || pass.length < 4)       { showToast('Informe uma senha válida!'); return; }
 
+      if (noAccountBox) noAccountBox.style.display = 'none';
       if (btnLogin) btnLogin.disabled = true;
       if (btnLoginText) btnLoginText.textContent = 'Entrando...';
 
@@ -578,10 +616,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!authRes.ok) {
           const errMsg = authData.error?.message || 'Erro ao entrar';
+          // Conta inexistente / credenciais inválidas → oferecer criação de conta.
+          // (Com proteção de enumeração de e-mail, o Firebase devolve
+          //  INVALID_LOGIN_CREDENTIALS tanto para senha errada quanto p/ conta inexistente.)
+          if (errMsg.includes('EMAIL_NOT_FOUND') || errMsg.includes('USER_NOT_FOUND') ||
+              errMsg.includes('INVALID_LOGIN_CREDENTIALS')) {
+            if (noAccountBox) noAccountBox.style.display = 'flex';
+          }
           throw new Error(
-            errMsg.includes('INVALID_PASSWORD') || errMsg.includes('INVALID_LOGIN_CREDENTIALS')
-              ? 'E-mail ou senha incorretos.'
-              : errMsg.includes('USER_NOT_FOUND') ? 'Usuário não encontrado. Crie sua conta no Afiliate.'
+            errMsg.includes('INVALID_PASSWORD')
+              ? 'Senha incorreta. Se ainda não tem conta, crie no Afiliate.'
+              : errMsg.includes('EMAIL_NOT_FOUND') || errMsg.includes('USER_NOT_FOUND')
+                ? 'Conta não encontrada. Crie sua conta no Afiliate abaixo.'
+              : errMsg.includes('INVALID_LOGIN_CREDENTIALS')
+                ? 'E-mail ou senha incorretos. Não tem conta? Crie no Afiliate abaixo.'
               : errMsg.includes('TOO_MANY_ATTEMPTS') ? 'Muitas tentativas. Aguarde alguns minutos.'
               : errMsg.includes('INVALID_EMAIL') ? 'Formato de e-mail inválido.'
               : errMsg

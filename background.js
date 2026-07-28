@@ -249,6 +249,7 @@ async function syncProductToFirestore(product, uid, idToken) {
     platformId:    globalId.split('_').slice(1).join('_'),
     title:         product.title || 'Sem título',
     description:   product.description || null,
+    category:      product.category || null,
     image_url:     product.image_url || product.image || null,
     pictures:      product.pictures || (product.image ? [product.image] : []),
     video_url:     null,
@@ -294,6 +295,7 @@ async function syncProductToFirestore(product, uid, idToken) {
     if (doc.installments)         patch.installments = doc.installments;
     if (doc.pix_price)            patch.pix_price = doc.pix_price;
     if (doc.description)          patch.description = doc.description;
+    if (doc.category)             patch.category = doc.category;
     if (doc.price_from)           patch.price_from = doc.price_from;
     if (doc.stars)                patch.stars = doc.stars;
     if (doc.sales_count)          patch.sales_count = doc.sales_count;

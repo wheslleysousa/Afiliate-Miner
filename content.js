@@ -357,7 +357,7 @@ function renderDraggableOverlay() {
           <div class="am-logo-icon">⚡</div>
           <div>
             <div class="am-header-title">AFFILIATE MINER</div>
-            <div class="am-header-ver">v2.5.1</div>
+            <div class="am-header-ver">v2.6.0</div>
           </div>
         </div>
         <div class="am-header-actions">
@@ -871,7 +871,7 @@ function extractRealProductData(element) {
     let title = '', pixPrice = 0, oldPrice = 0, discountPercent = 0;
     let rating = 0, sales = 0, freeShipping = false, noInterest = false;
     let image = '', link = window.location.href;
-    let coupon = null, installments = null, description = null, pixExplicit = 0;
+    let coupon = null, installments = null, description = null, pixExplicit = 0, category = null;
     const id = 'prod_' + Date.now() + '_' + Math.floor(Math.random() * 9999);
 
     if (element) {
@@ -1099,6 +1099,7 @@ function extractRealProductData(element) {
       coupon       = extractCouponText(document, bodyText);
       pixExplicit  = extractPixPriceNum(bodyText, 0);
       description  = extractDescriptionText();
+      category     = extractCategoryText();
     }
 
     return {
@@ -1127,6 +1128,7 @@ function extractRealProductData(element) {
       sales_count:  sales > 0 ? (sales >= 1000 ? `${(sales/1000).toFixed(1)}k` : String(sales)) : null,
       discount_pct: discountPercent > 0 ? discountPercent : null,
       description:  description,
+      category:     category,
       extractedAt:  new Date().toISOString(),
     };
   } catch (err) {
@@ -1234,6 +1236,24 @@ function extractPixPriceNum(scopeText, fallback) {
     }
   }
   return fallback || 0;
+}
+
+// ── Categoria do produto (best-effort, para cálculo de comissão no app) ──
+// Lê o breadcrumb da PDP; retorna a categoria mais específica (último nível).
+function extractCategoryText() {
+  const crumbSel = [
+    '.andes-breadcrumb__item', '.ui-pdp-breadcrumb a', '[typeof="BreadcrumbList"] a',
+    '.a-breadcrumb .a-list-item', 'nav[aria-label*="readcrumb" i] a',
+    '.breadcrumb a', '.bread-crumb a'
+  ];
+  const nodes = document.querySelectorAll(crumbSel.join(', '));
+  const parts = [];
+  nodes.forEach(n => {
+    const t = (n.textContent || '').replace(/\s+/g, ' ').trim();
+    if (t && !/^(in[íi]cio|home|voltar)$/i.test(t) && t.length <= 40) parts.push(t);
+  });
+  if (parts.length) return parts[parts.length - 1].slice(0, 60);
+  return null;
 }
 
 // ── Descrição (apenas em PDP / página do produto) ─────────

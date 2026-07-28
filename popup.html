@@ -41,7 +41,13 @@
       </div>
       <div class="field-group">
         <label class="field-label">Senha</label>
-        <input id="login-password" type="password" placeholder="Digite sua senha" value="" autocomplete="current-password" />
+        <div class="password-wrap">
+          <input id="login-password" type="password" placeholder="Digite sua senha" value="" autocomplete="current-password" />
+          <button type="button" id="btn-toggle-password" class="btn-eye" title="Mostrar senha" aria-label="Mostrar senha">
+            <svg id="icon-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="icon-eye-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
       </div>
       <button id="btn-login" class="btn-primary">
         <span id="btn-login-text">Entrar no Afiliate</span>
@@ -49,6 +55,16 @@
       </button>
       <div class="register-note" id="register-note" style="display:none; font-size:11px; color:#94a3b8; text-align:center; margin-top:6px;">
         Ao criar conta, seus produtos minerados serão vinculados automaticamente ao seu painel Afiliate.
+      </div>
+
+      <!-- Bloco: usuário sem conta -->
+      <div id="no-account-box" class="no-account-box" style="display:none;">
+        <div class="no-account-title">Ainda não tem conta no Afiliate?</div>
+        <p class="no-account-text">Crie sua conta gratuita no site do Afiliate e depois volte aqui para entrar com o mesmo e-mail e senha.</p>
+        <button type="button" id="btn-create-account" class="btn-create-account">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          <span>Criar conta no Afiliate</span>
+        </button>
       </div>
     </div>
   </div>
@@ -63,7 +79,7 @@
         <div>
           <div class="brand-title">
             <span>Affiliate Miner</span>
-            <span class="v-badge">v2.5.1</span>
+            <span class="v-badge">v2.6.0</span>
           </div>
           <div class="status-indicator">
             <span class="status-dot active"></span>
