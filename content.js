@@ -357,7 +357,7 @@ function renderDraggableOverlay() {
           <div class="am-logo-icon">⚡</div>
           <div>
             <div class="am-header-title">AFFILIATE MINER</div>
-            <div class="am-header-ver">v2.6.1</div>
+            <div class="am-header-ver">v2.6.2</div>
           </div>
         </div>
         <div class="am-header-actions">
@@ -1014,6 +1014,9 @@ function extractRealProductData(element) {
       installments = extractInstallmentsText(cardText);
       coupon       = extractCouponText(element, cardText);
       pixExplicit  = extractPixPriceNum(cardText, 0);
+      // Categoria a partir do breadcrumb da página de LISTAGEM (aplica a todos os
+      // cards daquela busca) — necessária para o cálculo de comissão no app.
+      category     = extractCategoryText();
     } else {
       // Single PDP Extraction (product detail page)
       const titleEl = document.querySelector(
