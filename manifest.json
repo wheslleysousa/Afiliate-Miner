@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Affiliate Miner",
+  "name": "Afiliate miner",
   "version": "2.6.2",
   "description": "Minerador inteligente de produtos afiliados — sincroniza automaticamente com o Afiliate.",
   "icons": {
@@ -11,7 +11,7 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon":  "icons/icon48.png",
-    "default_title": "Affiliate Miner"
+    "default_title": "Afiliate miner"
   },
   "background": {
     "service_worker": "background.js"

@@ -1,4 +1,4 @@
-/* Affiliate Miner Service Worker v2.0.0
+/* Afiliate miner Service Worker v2.0.0
    — Adiciona: refresh automático de token + sync de produtos ao Firestore
    — Mantém: inicialização do state padrão
 */

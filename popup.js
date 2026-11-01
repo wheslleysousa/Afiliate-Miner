@@ -1,4 +1,4 @@
-/* Affiliate Miner Popup JS v2.0.0
+/* Afiliate miner Popup JS v2.0.0
    MUDANÇAS vs v1.0.7:
    - Login agora usa Firebase Auth real (REST API)
    - "Enviar Todos" agora sincroniza com Firestore real
@@ -783,7 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function generateDiagnosticReport() {
     const err = state.lastError || { message: 'Nenhum erro crítico registrado recentemente.', stack: 'Operação limpa.' };
-    const report = `### ⚠️ Relatório de Diagnóstico de Erro - Affiliate Miner v2.0.0
+    const report = `### ⚠️ Relatório de Diagnóstico de Erro - Afiliate miner v2.0.0
 **Data/Hora**: ${new Date().toLocaleString('pt-BR')}
 **Usuário**: ${state.userEmail || 'Desconectado'} (UID: ${state.uid || 'sem UID'})
 **Autenticado**: ${state.isLoggedIn ? 'Sim' : 'Não'}

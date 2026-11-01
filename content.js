@@ -1,4 +1,4 @@
-/* Affiliate Miner Content Script v1.0.5 — Fixed Price Container & Multi-Strategy Parser */
+/* Afiliate miner Content Script v1.0.5 — Fixed Price Container & Multi-Strategy Parser */
 
 let extActive = true;
 let autoMine = false;
@@ -119,7 +119,7 @@ function injectOverlayCSS() {
   style.textContent = `
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap');
 
-    /* Paleta Affiliate Miner: Preto · Azul · Branco · Verde · Amarelo · Vermelho */
+    /* Paleta Afiliate miner: Preto · Azul · Branco · Verde · Amarelo · Vermelho */
     #am-overlay {
       position: fixed !important;
       top: 20px !important;
@@ -356,7 +356,7 @@ function renderDraggableOverlay() {
         <div class="am-header-left">
           <div class="am-logo-icon">⚡</div>
           <div>
-            <div class="am-header-title">AFFILIATE MINER</div>
+            <div class="am-header-title">AFILIATE MINER</div>
             <div class="am-header-ver">v2.6.2</div>
           </div>
         </div>
@@ -532,7 +532,7 @@ function renderFloatingTrigger() {
   if (!trigger) {
     trigger = document.createElement('button');
     trigger.id = 'am-floating-trigger';
-    trigger.innerHTML = `<span>⚡ Affiliate Miner</span>`;
+    trigger.innerHTML = `<span>⚡ Afiliate miner</span>`;
     trigger.onclick = () => showOverlay();
     document.body.appendChild(trigger);
   }
@@ -1486,7 +1486,7 @@ function showDiagnosticErrorModal(errLog) {
     document.body.appendChild(modal);
   }
 
-  const report = `### ⚠️ Diagnóstico - Affiliate Miner v1.0.1\n**Hora**: ${errLog.time}\n**URL**: ${errLog.url}\n**Contexto**: ${errLog.context}\n\n**Erro**:\n\`\`\`\n${errLog.message}\n${errLog.stack}\n\`\`\`\n*Cole no chat do assistente AI!*`;
+  const report = `### ⚠️ Diagnóstico - Afiliate miner v1.0.1\n**Hora**: ${errLog.time}\n**URL**: ${errLog.url}\n**Contexto**: ${errLog.context}\n\n**Erro**:\n\`\`\`\n${errLog.message}\n${errLog.stack}\n\`\`\`\n*Cole no chat do assistente AI!*`;
 
   modal.innerHTML = `
     <div class="am-err-box">
