@@ -1119,7 +1119,7 @@ function extractRealProductData(element) {
       }
       pixPrice = confirmed.price;
       oldPrice = confirmed.oldPrice;
-      discountPercent = confirmed.discount || discountPercent;
+      discountPercent = confirmed.discount;
       if (discountPercent > 95) discountPercent = 0;
       pixExplicit = /\bpix\b/i.test(localScope.textContent || '') ? pixPrice : 0;
     }
