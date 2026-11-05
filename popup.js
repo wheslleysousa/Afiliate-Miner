@@ -371,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
       switch (platform) {
         case 'mercadolivre': { const m = url.match(/(MLB\d+)/i); if (m) return `mercadolivre_${m[1].toUpperCase()}`; break; }
         case 'amazon': { const m = url.match(/\/dp\/([A-Z0-9]{10})/i); if (m) return `amazon_${m[1].toUpperCase()}`; break; }
-        case 'shopee': { const m = url.match(/[-.]i\.(\d+)\.(\d+)/); if (m) return `shopee_${m[1]}_${m[2]}`; break; }
+        case 'shopee': { const m = url.match(/[-.]i\.(\d+)\.(\d+)/) || url.match(/\/product\/(\d+)\/(\d+)/); if (m) return `shopee_${m[1]}_${m[2]}`; break; }
         case 'aliexpress': { const m = url.match(/\/item\/(\d+)/); if (m) return `aliexpress_${m[1]}`; break; }
         case 'shein': { const m = url.match(/\/p-([a-z0-9]+)/i); if (m) return `shein_${m[1].toLowerCase()}`; break; }
       }
@@ -419,6 +419,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function syncProductToFirestore(product) {
     if (!state.isLoggedIn || !state.uid) return;
+    if (!(Number(product.pixPrice) > 0) || !String(product.title || '').trim()) {
+      throw new Error('Produto sem preço/título confiável; sincronização bloqueada.');
+    }
 
     const token    = await ensureValidToken();
     const platform = normalizePlatform(product.platform || product.marketplace || '');

@@ -655,13 +655,14 @@ function bindOverlayListeners(overlay) {
       chk.onchange = () => {
         qualityFilters.selectedMarketplaces[mkt] = !!chk.checked;
         saveStateToStorage();
+        reapplyFiltersToMinedList(false);
       };
     }
   });
 
   const kwInput = overlay.querySelector('#am-input-kw');
   if (kwInput) {
-    kwInput.oninput = () => { qualityFilters.category = kwInput.value.trim(); saveStateToStorage(); };
+    kwInput.oninput = () => { qualityFilters.category = kwInput.value.trim(); saveStateToStorage(); scheduleReapply(); };
     kwInput.onkeydown = (e) => {
       if (e.key === 'Enter') triggerAutomatedSearch();
     };
@@ -1105,6 +1106,23 @@ function extractRealProductData(element) {
       category     = extractCategoryText();
     }
 
+    // Mercado Livre/Shopee: rejeitar preços de parcela/desconto sem referência de preço atual.
+    if (getPlatformKey() === 'mercadolivre' || getPlatformKey() === 'shopee') {
+      const localScope = element ? (element.closest(
+        'li.ui-search-layout__item, .ui-search-layout__item, .ui-search-result__wrapper, .poly-card, ' +
+        '[data-sqe="item"], .shopee-search-item-result__item, li[data-sqe], article'
+      ) || element) : document;
+      const confirmed = window.AfiliateQualityParser?.extract(localScope, getPlatformKey(), !element);
+      if (!confirmed) {
+        console.warn('[Afiliate Miner] Preço não confirmado:', getPlatformKey(), link);
+        return null;
+      }
+      pixPrice = confirmed.price;
+      oldPrice = confirmed.oldPrice;
+      discountPercent = confirmed.discount;
+      if (discountPercent > 95) discountPercent = 0;
+      pixExplicit = /\bpix\b/i.test(localScope.textContent || '') ? pixPrice : 0;
+    }
     return {
       // ── Campos ORIGINAIS (mantidos para não quebrar nada) ──
       id, title, pixPrice, oldPrice, discountPercent,
@@ -1328,6 +1346,10 @@ async function enrichProductDataInBackground(product) {
 // CONHECIDO e >= mínimo. Valor não identificado = reprovado.
 function filterRejectReason(product) {
   const f = qualityFilters || {};
+  const store = (product.platform || '').toLowerCase();
+  const storeFlag = store === 'mercadolivre' ? 'ml' : store;
+  if (f.selectedMarketplaces?.[storeFlag] === false) return 'loja desmarcada';
+  if (!window.AfiliateQualityParser?.isValidProduct(product)) return 'preço, título ou link não confirmado';
   const num = (v) => (typeof v === 'number' ? v : parseFloat(v)) || 0;
 
   const sales    = num(product.sales);
@@ -1414,7 +1436,7 @@ async function processAndFilterProduct(product, manual = false) {
   }
 
   // Duplicate Check
-  if (minedProducts.some((p) => p.title === product.title)) {
+  if (minedProducts.some((p) => p.original_link === product.original_link && p.platform === product.platform)) {
     if (manual) showToast('⚠️ Produto já está no histórico');
     return false;
   }
@@ -1537,7 +1559,9 @@ if (typeof chrome !== 'undefined' && chrome.runtime) {
       renderDraggableOverlay();
       if (autoMine && extActive) startAutoMining(); else stopAutoMining();
     } else if (msg.action === 'SET_FILTERS') {
-      qualityFilters = msg.filters;
+      qualityFilters = { ...qualityFilters, ...(msg.filters || {}) };
+      saveStateToStorage();
+      reapplyFiltersToMinedList(false);
       renderDraggableOverlay();
     } else if (msg.action === 'UPDATE_MINED_LIST') {
       minedProducts = msg.minedProducts;

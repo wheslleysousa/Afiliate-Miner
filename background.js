@@ -163,7 +163,7 @@ function buildGlobalId(platform, url) {
         break;
       }
       case 'shopee': {
-        const m = url.match(/[-.]i\.(\d+)\.(\d+)/);
+        const m = url.match(/[-.]i\.(\d+)\.(\d+)/) || url.match(/\/product\/(\d+)\/(\d+)/);
         if (m) return `shopee_${m[1]}_${m[2]}`;
         break;
       }
@@ -234,6 +234,10 @@ async function syncProductToFirestore(product, uid, idToken) {
   const platform = normalizePlatform(product.platform || product.marketplace || '');
   const url      = cleanUrl(product.original_link || product.link || '');
   if (!url) return;
+  const price = Number(product.pixPrice);
+  if (!Number.isFinite(price) || price <= 0 || price > 9999999 || !String(product.title || '').trim()) {
+    throw new Error('Preço ou título não confirmado; item não sincronizado.');
+  }
 
   const globalId = buildGlobalId(platform, url);
   const now      = new Date().toISOString();

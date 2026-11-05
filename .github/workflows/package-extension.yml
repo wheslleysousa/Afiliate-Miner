@@ -15,6 +15,11 @@ jobs:
         run: |
           test -s manifest.json
           test -s background.js
+          test -s quality.js
+          node --check quality.js
+          node --check content.js
+          node --check popup.js
+          node --check background.js
           test -s content.js
           test -s popup.html
           test -s popup.css
@@ -23,12 +28,12 @@ jobs:
       - name: Criar ZIP instalável (arquivos na raiz)
         shell: bash
         run: |
-          zip -q -r Afiliate-Miner-2.6.2.zip manifest.json background.js content.js popup.html popup.css popup.js icons/
-          unzip -t Afiliate-Miner-2.6.2.zip | tail -1
+          zip -q -r Afiliate-Miner-2.7.0.zip manifest.json quality.js background.js content.js popup.html popup.css popup.js icons/
+          unzip -t Afiliate-Miner-2.7.0.zip | tail -1
       - name: Disponibilizar pacote
         uses: actions/upload-artifact@v4
         with:
-          name: Afiliate-Miner-2.6.2
-          path: Afiliate-Miner-2.6.2.zip
+          name: Afiliate-Miner-2.7.0
+          path: Afiliate-Miner-2.7.0.zip
           if-no-files-found: error
           retention-days: 30
