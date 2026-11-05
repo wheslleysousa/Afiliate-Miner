@@ -1,7 +1,7 @@
 /* Afiliate Miner v2.7 — preço confiável: não confundir parcela, preço antigo ou desconto. */
 (function (root) {
 'use strict';
-const EXCLUDED = 's,del,[class*="original" i],[class*="old-price" i],[class*="strike" i],[class*="through" i],[class*="installment" i],[class*="parcel" i],[class*="shipping" i],[class*="frete" i],[class*="credit-card" i],[class*="discount" i]';
+const EXCLUDED = 's,del,.poly-price__old,.ui-search-price__part--original,.ui-pdp-price__part--original,[class*="original" i],[class*="old-price" i],[class*="strike" i],[class*="through" i],[class*="installment" i],[class*="parcel" i],[class*="shipping" i],[class*="frete" i],[class*="credit-card" i],[class*="discount" i]';
 const OLD = 's,del,.poly-price__old,.ui-search-price__part--original,.ui-pdp-price__part--original,[class*="price-original" i],[class*="original-price" i],[class*="price-before" i],[class*="line-through" i]';
 const ML = ['.poly-price__current .andes-money-amount','.poly-component__price .andes-money-amount','.ui-search-price__second-line .andes-money-amount','.ui-pdp-price__main-container .andes-money-amount','.ui-pdp-price__part--medium .andes-money-amount','.andes-money-amount'];
 const SHOPEE = ['[data-sqe="price"]','.shopee-item-card__current-price','[data-testid="price"]','[data-e2e="price"]','[class*="current-price" i]','.flex.items-baseline','[class*="price"]'];
