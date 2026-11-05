@@ -1,16 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Afiliate miner",
-  "version": "2.6.2",
-  "description": "Minerador inteligente de produtos afiliados — sincroniza automaticamente com o Afiliate.",
+  "version": "2.7.0",
+  "description": "Afiliate Miner — preços e filtros validados para Mercado Livre e Shopee",
   "icons": {
-    "16":  "icons/icon16.png",
-    "48":  "icons/icon48.png",
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
   "action": {
     "default_popup": "popup.html",
-    "default_icon":  "icons/icon48.png",
+    "default_icon": "icons/icon48.png",
     "default_title": "Afiliate miner"
   },
   "background": {
@@ -18,7 +18,10 @@
   },
   "content_scripts": [
     {
-      "js": ["content.js"],
+      "js": [
+        "quality.js",
+        "content.js"
+      ],
       "matches": [
         "*://*.mercadolivre.com.br/*",
         "*://*.mercadolibre.com/*",
